@@ -1,12 +1,5 @@
 'use client';
 
-import { Metadata } from "next";
-
-export const metadata: Metadata = {
-  title: "Help & Support | ImagePro",
-  description: "Get help and support for using ImagePro's image processing features",
-};
-
 export default function HelpPage() {
   return (
     <div className="container mx-auto px-4 py-8">

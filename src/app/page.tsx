@@ -1,105 +1,82 @@
-import Image from "next/image";
+import Link from "next/link"
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <main className="container mx-auto px-4 py-16">
-        <div className="flex flex-col items-center justify-center space-y-8">
-          <Image
-            className="dark:invert"
-            src="/next.svg"
-            alt="Next.js logo"
-            width={180}
-            height={38}
-            priority
-          />
-          
-          <div className="text-center space-y-4">
-            <h1 className="text-4xl font-bold">Welcome to Next.js</h1>
-            <p className="text-lg text-gray-600 dark:text-gray-300">
-              Get started by editing <code className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">src/app/page.tsx</code>
-            </p>
-          </div>
+    <div className="flex min-h-screen flex-col">
+      {/* Hero Section */}
+      <section className="flex flex-col items-center justify-center px-4 py-20 text-center">
+        <h1 className="mb-6 text-4xl font-bold tracking-tight sm:text-6xl">
+          Professional Image Editing
+          <span className="text-primary"> Powered by AI</span>
+        </h1>
+        <p className="mb-8 max-w-2xl text-lg text-muted-foreground">
+          Transform your images with our powerful AI tools. Remove backgrounds, upscale images, and more with just a few clicks.
+        </p>
+        <div className="flex gap-4">
+          <Link
+            href="/dashboard"
+            className="rounded-md bg-primary px-6 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            Get Started
+          </Link>
+          <Link
+            href="/pricing"
+            className="rounded-md border border-input bg-background px-6 py-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+          >
+            View Pricing
+          </Link>
+        </div>
+      </section>
 
-          <div className="flex flex-col sm:flex-row gap-4">
-            <a
-              className="inline-flex items-center justify-center px-6 py-3 rounded-full bg-black text-white hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200 transition-colors"
-              href="https://vercel.com/new"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <Image
-                className="dark:invert mr-2"
-                src="/vercel.svg"
-                alt="Vercel logomark"
-                width={20}
-                height={20}
-              />
-              Deploy now
-            </a>
-            <a
-              className="inline-flex items-center justify-center px-6 py-3 rounded-full border border-gray-300 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800 transition-colors"
-              href="https://nextjs.org/docs"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Read our docs
-            </a>
+      {/* Features Section */}
+      <section className="bg-muted/50 py-20">
+        <div className="container mx-auto px-4">
+          <h2 className="mb-12 text-center text-3xl font-bold">
+            Powerful Features for Your Images
+          </h2>
+          <div className="grid gap-8 md:grid-cols-3">
+            {/* Background Removal */}
+            <div className="rounded-lg border bg-card p-6 text-center">
+              <h3 className="mb-4 text-xl font-semibold">Background Removal</h3>
+              <p className="text-muted-foreground">
+                Remove backgrounds from images instantly with our advanced AI technology.
+              </p>
+            </div>
+
+            {/* Image Upscaling */}
+            <div className="rounded-lg border bg-card p-6 text-center">
+              <h3 className="mb-4 text-xl font-semibold">Image Upscaling</h3>
+              <p className="text-muted-foreground">
+                Enhance image quality and resolution without losing details.
+              </p>
+            </div>
+
+            {/* Object Removal */}
+            <div className="rounded-lg border bg-card p-6 text-center">
+              <h3 className="mb-4 text-xl font-semibold">Object Removal</h3>
+              <p className="text-muted-foreground">
+                Remove unwanted objects from your images seamlessly.
+              </p>
+            </div>
           </div>
         </div>
-      </main>
+      </section>
 
-      <footer className="border-t border-gray-200 dark:border-gray-800">
-        <div className="container mx-auto px-4 py-8">
-          <div className="flex flex-wrap justify-center gap-6">
-            <a
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-              href="https://nextjs.org/learn"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <Image
-                aria-hidden
-                src="/file.svg"
-                alt="File icon"
-                width={16}
-                height={16}
-              />
-              Learn
-            </a>
-            <a
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-              href="https://vercel.com/templates"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <Image
-                aria-hidden
-                src="/window.svg"
-                alt="Window icon"
-                width={16}
-                height={16}
-              />
-              Examples
-            </a>
-            <a
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-              href="https://nextjs.org"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <Image
-                aria-hidden
-                src="/globe.svg"
-                alt="Globe icon"
-                width={16}
-                height={16}
-              />
-              Go to nextjs.org →
-            </a>
-          </div>
+      {/* CTA Section */}
+      <section className="py-20">
+        <div className="container mx-auto px-4 text-center">
+          <h2 className="mb-6 text-3xl font-bold">Ready to Transform Your Images?</h2>
+          <p className="mb-8 text-lg text-muted-foreground">
+            Join thousands of users who trust ImagePro for their image editing needs.
+          </p>
+          <Link
+            href="/dashboard"
+            className="rounded-md bg-primary px-8 py-4 text-lg font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            Start Editing Now
+          </Link>
         </div>
-      </footer>
+      </section>
     </div>
-  );
+  )
 }

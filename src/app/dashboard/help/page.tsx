@@ -1,9 +1,5 @@
-import React from 'react';
+import HelpContent from './help-content';
 
 export default function HelpPage() {
-  return (
-    <div>
-      <h1>Help & Support</h1>
-    </div>
-  );
+  return <HelpContent />;
 } 

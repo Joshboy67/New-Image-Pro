@@ -32,9 +32,9 @@ export function Navbar() {
               key={item.href}
               href={item.href}
               className={cn(
-                "text-sm font-medium text-black transition-colors hover:text-primary",
+                "text-sm font-medium text-black transition-colors hover:text-primary relative py-2",
                 pathname === item.href
-                  ? "text-black"
+                  ? "text-black after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:bg-black after:content-['']"
                   : "text-black/80"
               )}
             >
@@ -52,13 +52,21 @@ export function Navbar() {
         <div className="flex items-center space-x-4">
           <Link
             href="/auth/login"
-            className="inline-flex h-10 items-center justify-center rounded-md bg-black px-4 py-2 text-sm font-medium text-white shadow transition-colors hover:bg-black/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className={cn(
+              "inline-flex h-10 items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+              pathname === "/auth/login" 
+                ? "bg-black text-white shadow" 
+                : "text-black border border-black hover:bg-black/5"
+            )}
           >
             Log in
           </Link>
           <Link
             href="/auth/signup"
-            className="inline-flex h-10 items-center justify-center rounded-md bg-black px-4 py-2 text-sm font-medium text-white shadow transition-colors hover:bg-black/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className={cn(
+              "inline-flex h-10 items-center justify-center rounded-md bg-black px-4 py-2 text-sm font-medium text-white shadow transition-colors hover:bg-black/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+              pathname === "/auth/signup" ? "bg-black/90" : "bg-black"
+            )}
           >
             Sign up
           </Link>

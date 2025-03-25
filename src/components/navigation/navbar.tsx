@@ -5,54 +5,64 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const navigation = [
-  { name: "Home", href: "/" },
-  { name: "Features", href: "/features" },
-  { name: "Pricing", href: "/pricing" },
-  { name: "Dashboard", href: "/dashboard" },
+  { name: "Link One", href: "/" },
+  { name: "Link Two", href: "/features" },
+  { name: "Link Three", href: "/pricing" },
+  { name: "Link Four", href: "/dashboard", hasDropdown: true },
 ];
 
 export function Navbar() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-14 items-center">
-        <div className="mr-4 flex">
-          <Link href="/" className="mr-6 flex items-center space-x-2">
-            <span className="font-bold">ImagePro</span>
+    <nav className="fixed top-0 z-50 w-full border-b bg-white">
+      <div className="container mx-auto flex h-16 items-center justify-between px-4">
+        {/* Logo on the left */}
+        <div className="flex items-center">
+          <Link href="/" className="flex items-center">
+            <span className="text-xl font-bold text-black">image pro</span>
           </Link>
         </div>
-        <div className="flex flex-1 items-center justify-between space-x-2 md:justify-end">
-          <div className="flex items-center space-x-6">
+        
+        {/* Navigation links in the center */}
+        <div className="flex-1 flex justify-center">
+          <div className="flex items-center space-x-8">
             {navigation.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className={cn(
-                  "text-sm font-medium transition-colors hover:text-primary",
-                  pathname === item.href
-                    ? "text-foreground"
-                    : "text-foreground/60"
-                )}
+                className="text-sm font-medium text-black hover:text-gray-700 transition-colors flex items-center"
               >
                 {item.name}
+                {item.hasDropdown && (
+                  <svg 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    className="h-4 w-4 ml-1" 
+                    fill="none" 
+                    viewBox="0 0 24 24" 
+                    stroke="currentColor"
+                  >
+                    <path 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                      strokeWidth={2} 
+                      d="M19 9l-7 7-7-7" 
+                    />
+                  </svg>
+                )}
               </Link>
             ))}
           </div>
-          <div className="flex items-center space-x-4">
-            <Link
-              href="/login"
-              className="text-sm font-medium text-foreground/60 transition-colors hover:text-primary"
-            >
-              Login
-            </Link>
-            <Link
-              href="/signup"
-              className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
-            >
-              Sign Up
-            </Link>
-          </div>
+        </div>
+        
+        {/* Button on the right */}
+        <div className="flex items-center">
+          <Link
+            href="/signup"
+            className="inline-flex h-10 items-center justify-center rounded-md bg-black px-6 py-2 text-sm font-medium text-white shadow transition-colors hover:bg-black/90 focus-visible:outline-none"
+          >
+            Button
+          </Link>
         </div>
       </div>
     </nav>

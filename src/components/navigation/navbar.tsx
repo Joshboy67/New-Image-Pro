@@ -4,16 +4,36 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { ChevronDown } from "lucide-react";
+import { useState } from "react";
 
 const navigation = [
   { name: "Home", href: "/" },
   { name: "Features", href: "/features" },
   { name: "Pricing", href: "/pricing" },
+  { 
+    name: "Resources", 
+    href: "#", 
+    hasDropdown: true, 
+    children: [
+      { name: "Documentation", href: "/docs" },
+      { name: "Tutorials", href: "/tutorials" },
+      { name: "API Reference", href: "/api" },
+    ]
+  },
   { name: "Dashboard", href: "/dashboard", hasDropdown: true },
 ];
 
 export function Navbar() {
   const pathname = usePathname();
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+
+  const toggleDropdown = (name: string) => {
+    if (openDropdown === name) {
+      setOpenDropdown(null);
+    } else {
+      setOpenDropdown(name);
+    }
+  };
 
   return (
     <nav className="fixed top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -28,23 +48,58 @@ export function Navbar() {
         {/* Navigation in center */}
         <div className="hidden md:flex items-center justify-center space-x-8">
           {navigation.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "text-sm font-medium text-black transition-colors hover:text-primary relative py-2",
-                pathname === item.href
-                  ? "text-black after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:bg-black after:content-['']"
-                  : "text-black/80"
+            <div key={item.href} className="relative">
+              {item.hasDropdown && item.children ? (
+                <div>
+                  <button
+                    onClick={() => toggleDropdown(item.name)}
+                    className={cn(
+                      "text-sm font-medium text-black transition-colors hover:text-primary relative py-2 flex items-center",
+                      openDropdown === item.name ? "text-black" : "text-black/80"
+                    )}
+                  >
+                    {item.name}
+                    <ChevronDown className={cn(
+                      "ml-1 h-4 w-4 transition-transform",
+                      openDropdown === item.name ? "rotate-180" : ""
+                    )} />
+                  </button>
+                  {openDropdown === item.name && (
+                    <div className="absolute top-full left-0 mt-1 bg-white shadow-md rounded-md py-2 w-48 z-50">
+                      {item.children.map((child) => (
+                        <Link
+                          key={child.href}
+                          href={child.href}
+                          className={cn(
+                            "block px-4 py-2 text-sm hover:bg-gray-100",
+                            pathname === child.href ? "font-medium" : ""
+                          )}
+                        >
+                          {child.name}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <Link
+                  href={item.href}
+                  className={cn(
+                    "text-sm font-medium text-black transition-colors hover:text-primary relative py-2",
+                    pathname === item.href
+                      ? "text-black after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:bg-black after:content-['']"
+                      : "text-black/80"
+                  )}
+                >
+                  <span className="flex items-center">
+                    {item.name}
+                    {item.hasDropdown && (
+                      <ChevronDown className="ml-1 h-4 w-4" />
+                    )}
+                  </span>
+                </Link>
               )}
-            >
-              <span className="flex items-center">
-                {item.name}
-                {item.hasDropdown && (
-                  <ChevronDown className="ml-1 h-4 w-4" />
-                )}
-              </span>
-            </Link>
+            </div>
           ))}
         </div>
 

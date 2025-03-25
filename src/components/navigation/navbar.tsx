@@ -3,65 +3,64 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { ChevronDown } from "lucide-react";
 
 const navigation = [
-  { name: "Link One", href: "/" },
-  { name: "Link Two", href: "/features" },
-  { name: "Link Three", href: "/pricing" },
-  { name: "Link Four", href: "/dashboard", hasDropdown: true },
+  { name: "Home", href: "/" },
+  { name: "Features", href: "/features" },
+  { name: "Pricing", href: "/pricing" },
+  { name: "Dashboard", href: "/dashboard", hasDropdown: true },
 ];
 
 export function Navbar() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed top-0 z-50 w-full border-b bg-white">
-      <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        {/* Logo on the left */}
+    <nav className="fixed top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container flex h-16 items-center justify-between">
+        {/* Logo on left */}
         <div className="flex items-center">
           <Link href="/" className="flex items-center">
             <span className="text-xl font-bold text-black">image pro</span>
           </Link>
         </div>
-        
-        {/* Navigation links in the center */}
-        <div className="flex-1 flex justify-center">
-          <div className="flex items-center space-x-8">
-            {navigation.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="text-sm font-medium text-black hover:text-gray-700 transition-colors flex items-center"
-              >
+
+        {/* Navigation in center */}
+        <div className="hidden md:flex items-center justify-center space-x-8">
+          {navigation.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "text-sm font-medium text-black transition-colors hover:text-primary",
+                pathname === item.href
+                  ? "text-black"
+                  : "text-black/80"
+              )}
+            >
+              <span className="flex items-center">
                 {item.name}
                 {item.hasDropdown && (
-                  <svg 
-                    xmlns="http://www.w3.org/2000/svg" 
-                    className="h-4 w-4 ml-1" 
-                    fill="none" 
-                    viewBox="0 0 24 24" 
-                    stroke="currentColor"
-                  >
-                    <path 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round" 
-                      strokeWidth={2} 
-                      d="M19 9l-7 7-7-7" 
-                    />
-                  </svg>
+                  <ChevronDown className="ml-1 h-4 w-4" />
                 )}
-              </Link>
-            ))}
-          </div>
+              </span>
+            </Link>
+          ))}
         </div>
-        
-        {/* Button on the right */}
-        <div className="flex items-center">
+
+        {/* Login/Signup on right */}
+        <div className="flex items-center space-x-4">
           <Link
-            href="/signup"
-            className="inline-flex h-10 items-center justify-center rounded-md bg-black px-6 py-2 text-sm font-medium text-white shadow transition-colors hover:bg-black/90 focus-visible:outline-none"
+            href="/auth/login"
+            className="inline-flex h-10 items-center justify-center rounded-md bg-black px-4 py-2 text-sm font-medium text-white shadow transition-colors hover:bg-black/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
-            Button
+            Log in
+          </Link>
+          <Link
+            href="/auth/signup"
+            className="inline-flex h-10 items-center justify-center rounded-md bg-black px-4 py-2 text-sm font-medium text-white shadow transition-colors hover:bg-black/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            Sign up
           </Link>
         </div>
       </div>

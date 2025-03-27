@@ -1,15 +1,17 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import "./globals.css";
+import './globals.css';
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
 import { Toaster } from "@/components/ui/toaster";
 import { Navbar } from "@/components/navigation/navbar";
 import { Footer } from "@/components/navigation/footer";
+import { AuthProvider } from "@/contexts/auth-context";
+import ClientLayout from '@/components/layouts/client-layout';
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: "ImagePro - Professional Image Editing",
-  description: "Professional image editing powered by AI. Remove backgrounds, upscale images, and more.",
+  title: 'ImagePro - AI Image Processing',
+  description: 'Advanced AI-powered image editing tools',
 };
 
 export default function RootLayout({
@@ -18,15 +20,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
-        <div className="relative min-h-screen flex flex-col">
-          <Navbar />
-          <main className="flex-1">{children}</main>
-          <Footer />
-        </div>
-        <Toaster />
-      </body>
-    </html>
+    <AuthProvider>
+      <html lang="en">
+        <body className={inter.className}>
+          <ClientLayout>{children}</ClientLayout>
+          <Toaster />
+        </body>
+      </html>
+    </AuthProvider>
   );
 }

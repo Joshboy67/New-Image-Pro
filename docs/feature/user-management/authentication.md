@@ -45,12 +45,17 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 Create a Supabase client provider in `src/lib/supabase.ts`:
 
 ```typescript
-import { createClient } from '@supabase/supabase-js';
+import { createBrowserClient } from '@supabase/ssr';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+export const createClient = () => {
+  return createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+};
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// For legacy compatibility with existing code
+export const supabase = createClient();
 ```
 
 #### 2.2 Auth Context Provider
@@ -59,8 +64,8 @@ Create an auth context to manage authentication state in `src/contexts/auth-cont
 
 ```typescript
 import { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
-import { User, Session } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase';
+import { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
 
 type AuthContextType = {
   user: User | null;
@@ -78,24 +83,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const supabase = createClient();
 
   useEffect(() => {
     // Initial session check
     setIsLoading(true);
     
     // Get session from storage
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setUser(data.session?.user ?? null);
       setIsLoading(false);
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setIsLoading(false);
-    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event: AuthChangeEvent, newSession: Session | null) => {
+        setSession(newSession);
+        setUser(newSession?.user ?? null);
+        setIsLoading(false);
+      }
+    );
 
     return () => {
       subscription.unsubscribe();
@@ -179,7 +187,7 @@ export function SignUpForm() {
       }
       
       // Redirect to the email verification page
-      router.push('/auth/verify-email');
+      router.push('/verify-email');
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -319,7 +327,7 @@ const handleSubmit = async (e: React.FormEvent) => {
 Create a callback route for OAuth redirects at `src/app/auth/callback/route.ts`:
 
 ```typescript
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
@@ -330,7 +338,19 @@ export async function GET(request: NextRequest) {
 
   if (code) {
     const cookieStore = cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get: (name: string) => cookieStore.get(name)?.value,
+          set: (name: string, value: string, options: any) => 
+            cookieStore.set(name, value, options),
+          remove: (name: string, options: any) => 
+            cookieStore.set(name, '', { ...options, maxAge: 0 }),
+        },
+      }
+    );
     await supabase.auth.exchangeCodeForSession(code);
   }
 
@@ -347,18 +367,31 @@ For server components, use the Supabase client with cookies:
 
 ```typescript
 // src/app/dashboard/page.tsx (server component)
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 export default async function DashboardPage() {
-  const supabase = createServerComponentClient({ cookies });
+  const cookieStore = cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get: (name: string) => cookieStore.get(name)?.value,
+        set: (name: string, value: string, options: any) => 
+          cookieStore.set(name, value, options),
+        remove: (name: string, options: any) => 
+          cookieStore.set(name, '', { ...options, maxAge: 0 }),
+      },
+    }
+  );
   
   const { data: { session } } = await supabase.auth.getSession();
   
   if (!session) {
     // Redirect to login if not authenticated
-    redirect('/auth/login');
+    redirect('/login');
   }
   
   // Fetch user-specific data
@@ -382,27 +415,42 @@ export default async function DashboardPage() {
 Create a middleware to protect routes at `src/middleware.ts`:
 
 ```typescript
-import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
+import { createServerClient } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next();
-  const supabase = createMiddlewareClient({ req, res });
+  
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get: (name: string) => req.cookies.get(name)?.value,
+        set: (name: string, value: string, options: any) => {
+          res.cookies.set(name, value, options);
+        },
+        remove: (name: string, options: any) => {
+          res.cookies.set(name, '', { ...options, maxAge: 0 });
+        },
+      },
+    }
+  );
   
   const { data: { session } } = await supabase.auth.getSession();
   
   // Check if user is authenticated for protected routes
   if (!session && req.nextUrl.pathname.startsWith('/dashboard')) {
-    const redirectUrl = new URL('/auth/login', req.url);
+    const redirectUrl = new URL('/login', req.url);
     redirectUrl.searchParams.set('redirect', req.nextUrl.pathname);
     return NextResponse.redirect(redirectUrl);
   }
   
   // Redirect logged in users away from auth pages
   if (session && (
-    req.nextUrl.pathname.startsWith('/auth/login') || 
-    req.nextUrl.pathname.startsWith('/auth/signup')
+    req.nextUrl.pathname.startsWith('/login') || 
+    req.nextUrl.pathname.startsWith('/signup')
   )) {
     return NextResponse.redirect(new URL('/dashboard', req.url));
   }
@@ -413,8 +461,8 @@ export async function middleware(req: NextRequest) {
 export const config = {
   matcher: [
     '/dashboard/:path*',
-    '/auth/login',
-    '/auth/signup',
+    '/login',
+    '/signup',
   ],
 };
 ```
@@ -497,5 +545,5 @@ Implement thorough testing for authentication flows:
 ## References
 
 - [Supabase Auth Documentation](https://supabase.com/docs/guides/auth)
-- [Supabase Auth Helpers for Next.js](https://supabase.com/docs/guides/auth/auth-helpers/nextjs)
+- [Supabase SSR Documentation](https://supabase.com/docs/guides/auth/server-side)
 - [Google OAuth Setup Guide](https://supabase.com/docs/guides/auth/social-login/auth-google) 

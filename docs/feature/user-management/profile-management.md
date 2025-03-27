@@ -28,7 +28,8 @@ ADD COLUMN bio TEXT,
 ADD COLUMN website TEXT,
 ADD COLUMN email_notifications BOOLEAN DEFAULT TRUE,
 ADD COLUMN theme TEXT DEFAULT 'light',
-ADD COLUMN image_quality TEXT DEFAULT 'high';
+ADD COLUMN image_quality TEXT DEFAULT 'high',
+ADD COLUMN google_avatar_url TEXT; -- Store original Google avatar URL
 ```
 
 ### 2. Frontend Implementation
@@ -42,6 +43,7 @@ import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { ProfileForm } from '@/components/profile/profile-form';
+import { downloadAndUploadGoogleAvatar } from '@/lib/avatar-utils';
 
 export default async function ProfilePage() {
   const supabase = createServerComponentClient({ cookies });
@@ -58,6 +60,11 @@ export default async function ProfilePage() {
     .select('*')
     .eq('id', session.user.id)
     .single();
+
+  // If user has Google avatar but no local avatar, download and store it
+  if (profile?.google_avatar_url && !profile?.avatar_url) {
+    await downloadAndUploadGoogleAvatar(session.user.id, profile.google_avatar_url);
+  }
   
   return (
     <div className="container max-w-4xl py-12">
@@ -422,6 +429,72 @@ export function ProfileAvatar({ url, uid, onUploadComplete }: ProfileAvatarProps
 }
 ```
 
+#### 2.4 Avatar Utilities
+
+Create a utility file for avatar handling at `src/lib/avatar-utils.ts`:
+
+```typescript
+import { supabase } from './supabase';
+
+export async function downloadAndUploadGoogleAvatar(userId: string, googleAvatarUrl: string) {
+  try {
+    // Download the avatar from Google
+    const response = await fetch(googleAvatarUrl);
+    if (!response.ok) throw new Error('Failed to download Google avatar');
+    
+    const blob = await response.blob();
+    const fileExt = 'png'; // Google avatars are typically PNG
+    const filePath = `${userId}/avatar.${fileExt}`;
+    
+    // Upload to Supabase storage
+    const { error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(filePath, blob, {
+        contentType: 'image/png',
+        upsert: true
+      });
+    
+    if (uploadError) throw uploadError;
+    
+    // Get the public URL
+    const { data: publicURL } = supabase.storage
+      .from('avatars')
+      .getPublicUrl(filePath);
+    
+    // Update profile with new avatar URL
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update({ avatar_url: publicURL.publicUrl })
+      .eq('id', userId);
+    
+    if (updateError) throw updateError;
+    
+    return publicURL.publicUrl;
+  } catch (error) {
+    console.error('Error processing Google avatar:', error);
+    return null;
+  }
+}
+
+export async function updateGoogleAvatar(userId: string, googleAvatarUrl: string) {
+  try {
+    // Update the Google avatar URL in the profile
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update({ google_avatar_url: googleAvatarUrl })
+      .eq('id', userId);
+    
+    if (updateError) throw updateError;
+    
+    // Download and upload the new avatar
+    return await downloadAndUploadGoogleAvatar(userId, googleAvatarUrl);
+  } catch (error) {
+    console.error('Error updating Google avatar:', error);
+    return null;
+  }
+}
+```
+
 ### 3. Server-Side Implementation
 
 #### 3.1 API Route for Profile Updates
@@ -432,6 +505,7 @@ Create an API route for profile updates at `src/app/api/profile/route.ts`:
 import { NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
+import { downloadAndUploadGoogleAvatar } from '@/lib/avatar-utils';
 
 export async function PUT(request: Request) {
   const requestUrl = new URL(request.url);
@@ -450,6 +524,17 @@ export async function PUT(request: Request) {
     
     // Get profile data from request body
     const profileData = await request.json();
+    
+    // If Google avatar URL is provided, download and store it
+    if (profileData.google_avatar_url) {
+      const avatarUrl = await downloadAndUploadGoogleAvatar(
+        session.user.id,
+        profileData.google_avatar_url
+      );
+      if (avatarUrl) {
+        profileData.avatar_url = avatarUrl;
+      }
+    }
     
     // Validate the data (implement more thorough validation as needed)
     if (profileData.website && !isValidUrl(profileData.website)) {
@@ -544,6 +629,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { PasswordUpdateForm } from '@/components/profile/password-update-form';
 import { AccountDeletionForm } from '@/components/profile/account-deletion-form';
+import { updateGoogleAvatar } from '@/lib/avatar-utils';
 
 export default async function SettingsPage() {
   const supabase = createServerComponentClient({ cookies });
@@ -552,6 +638,12 @@ export default async function SettingsPage() {
   
   if (!session) {
     redirect('/auth/login');
+  }
+  
+  // If user has Google avatar URL in metadata, update it
+  const googleAvatarUrl = session.user.user_metadata?.avatar_url;
+  if (googleAvatarUrl) {
+    await updateGoogleAvatar(session.user.id, googleAvatarUrl);
   }
   
   return (

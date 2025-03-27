@@ -19,4 +19,31 @@ export const createClient = () => {
 };
 
 // For legacy compatibility with existing code
-export const supabase = createClient(); 
+export const supabase = createClient();
+
+// Test function to verify Supabase connection
+export async function testSupabaseConnection() {
+  try {
+    const { data, error } = await supabase.from('profiles').select('count').limit(1);
+    
+    if (error) {
+      console.error('Supabase connection error:', error);
+      return {
+        connected: false,
+        error: error.message
+      };
+    }
+    
+    console.log('Supabase connection successful');
+    return {
+      connected: true,
+      data
+    };
+  } catch (error) {
+    console.error('Supabase connection test failed:', error);
+    return {
+      connected: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+} 

@@ -1,22 +1,40 @@
-# Image Pro Documentation
+# Documentation
 
-This directory contains comprehensive documentation for the Image Pro web application.
+## Project Overview
+- [Product Requirements Document](prd.md)
+- [Technical Architecture](technical-architecture.md)
+- [Project Status](project-status.md)
+- [Design Guidelines](design-guidelines.md)
 
-## Table of Contents
+## User Documentation
+- [User Guide](user-guide.md)
+- [User Flow](user-flow.md)
 
-1. [Product Requirements Document (PRD)](./prd.md)
-2. [Design Guidelines](./design-guidelines.md)
-3. [User Flow](./user-flow.md)
-4. [Technical Architecture](./technical-architecture.md)
-5. [API Documentation](./api-documentation.md)
-6. [User Guide](./user-guide.md)
-7. [Development Guide](./development-guide.md)
-8. [Deployment Guide](./deployment-guide.md)
+## Technical Documentation
+- [API Documentation](api-documentation.md)
+- [Database Schema](database/schema.md)
+- [Authentication](security/authentication.md)
+- [Storage](storage/configuration.md)
+- [Testing](testing/setup.md)
 
-## Quick Links
+## Development
+- [Development Setup](development/setup.md)
+- [Code Style Guide](development/code-style.md)
+- [Testing Guide](testing/guide.md)
+- [Deployment Guide](deployment/guide.md)
 
-- [Project Overview](./prd.md#project-overview)
-- [Feature List](./prd.md#features)
-- [Design System](./design-guidelines.md#design-system)
-- [User Journey](./user-flow.md#user-journey)
-- [Technical Stack](./technical-architecture.md#technical-stack) 
+## Security
+- [Security Considerations](security/considerations.md)
+- [Authentication & Authorization](security/authentication.md)
+- [Data Protection](security/data-protection.md)
+
+## Performance
+- [Performance Guidelines](performance/guidelines.md)
+- [Optimization Guide](performance/optimization.md)
+- [Monitoring](performance/monitoring.md)
+
+## Features
+- [Feature Documentation](feature/)
+  - [Image Processing](feature/image-processing.md)
+  - [User Management](feature/user-management.md)
+  - [Settings](feature/settings.md) 

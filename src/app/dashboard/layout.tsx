@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
   ImageIcon,
@@ -13,7 +13,7 @@ import {
   Trash2,
   Wand2,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SignOutButton } from "@/components/auth/signout-button";
 import { useAuth } from "@/contexts/auth-context";
 
@@ -57,19 +57,40 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTool, setActiveTool] = useState<string | null>(null);
   const { user } = useAuth();
 
+  // Get active tool from URL search params
+  useEffect(() => {
+    const tool = searchParams.get('tool');
+    setActiveTool(tool);
+  }, [searchParams]);
+
   // Handle tool selection
   const handleToolClick = (toolId: string) => {
-    setActiveTool(toolId === activeTool ? null : toolId);
+    if (activeTool === toolId) {
+      setActiveTool(null);
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete('tool');
+      router.push(`/dashboard?${params.toString()}`);
+    } else {
+      setActiveTool(toolId);
+      const params = new URLSearchParams(searchParams.toString());
+      params.set('tool', toolId);
+      router.push(`/dashboard?${params.toString()}`);
+    }
   };
 
   // Navigate to profile page
   const navigateToProfile = () => {
+    setActiveTool(null);
     router.push('/dashboard/profile');
   };
+
+  // Check if we're on the main dashboard page
+  const isDashboardPage = pathname === '/dashboard';
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -141,7 +162,10 @@ export default function DashboardLayout({
                           ? "bg-gray-50 text-primary"
                           : "text-gray-700 hover:bg-gray-50 hover:text-primary"
                       )}
-                      onClick={() => setSidebarOpen(false)}
+                      onClick={() => {
+                        setActiveTool(null);
+                        setSidebarOpen(false);
+                      }}
                     >
                       <item.icon
                         className={cn(
@@ -227,6 +251,7 @@ export default function DashboardLayout({
                             ? "bg-gray-50 text-primary"
                             : "text-gray-700 hover:bg-gray-50 hover:text-primary"
                         )}
+                        onClick={() => setActiveTool(null)}
                       >
                         <item.icon
                           className={cn(
@@ -295,7 +320,7 @@ export default function DashboardLayout({
           <main className="py-6">
             <div className="px-4 sm:px-6 lg:px-8">
               {/* Tool panel or default content */}
-              {activeTool ? (
+              {isDashboardPage && activeTool ? (
                 <div className="bg-white shadow rounded-lg p-6 mb-6">
                   <h2 className="text-lg font-medium text-gray-900 mb-4">
                     {tools.find(t => t.id === activeTool)?.name}

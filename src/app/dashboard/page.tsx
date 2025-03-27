@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { BackgroundRemover } from '@/components/tools/background-remover';
 import { ImageUpscaler } from '@/components/tools/image-upscaler';
@@ -12,8 +13,49 @@ import Link from 'next/link';
 type Tool = 'background-remover' | 'upscaler' | 'remove-object' | 'enhancement';
 
 export default function Dashboard() {
-  const [selectedTool, setSelectedTool] = useState<Tool>('background-remover');
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, signOut } = useAuth();
+  const [activeTool, setActiveTool] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) {
+      router.push('/login');
+    }
+  }, [user, router]);
+
+  // Get the active tool from URL search params
+  useEffect(() => {
+    const tool = searchParams.get('tool');
+    setActiveTool(tool);
+  }, [searchParams]);
+
+  // Update URL when tool changes
+  const handleToolChange = (toolId: string | null) => {
+    setActiveTool(toolId);
+    const params = new URLSearchParams(searchParams.toString());
+    if (toolId) {
+      params.set('tool', toolId);
+    } else {
+      params.delete('tool');
+    }
+    router.push(`/dashboard?${params.toString()}`);
+  };
+
+  const renderToolPanel = () => {
+    switch (activeTool) {
+      case 'background-remover':
+        return <BackgroundRemover />;
+      case 'upscaler':
+        return <ImageUpscaler />;
+      case 'remove-object':
+        return <RemoveObject />;
+      case 'enhancement':
+        return <Enhancement />;
+      default:
+        return null;
+    }
+  };
 
   const tools = [
     { id: 'background-remover', name: 'Background Remover', icon: Image },
@@ -21,22 +63,6 @@ export default function Dashboard() {
     { id: 'remove-object', name: 'Remove Object', icon: Settings },
     { id: 'enhancement', name: 'Enhancement', icon: Wand2 },
   ];
-
-  // This function returns the appropriate component based on the selected tool
-  const getToolComponent = () => {
-    switch (selectedTool) {
-      case 'background-remover':
-        return <BackgroundRemover key="background-remover" />;
-      case 'upscaler':
-        return <ImageUpscaler key="upscaler" />;
-      case 'remove-object':
-        return <RemoveObject key="remove-object" />;
-      case 'enhancement':
-        return <Enhancement key="enhancement" />;
-      default:
-        return <BackgroundRemover key="background-remover" />;
-    }
-  };
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
@@ -50,9 +76,9 @@ export default function Dashboard() {
             {tools.map((tool) => (
               <button
                 key={tool.id}
-                onClick={() => setSelectedTool(tool.id as Tool)}
+                onClick={() => handleToolChange(tool.id as string | null)}
                 className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  selectedTool === tool.id
+                  activeTool === tool.id
                     ? 'bg-blue-50 text-blue-700'
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
@@ -68,7 +94,7 @@ export default function Dashboard() {
       {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto p-6">
         <div className="bg-white rounded-lg shadow-lg p-6">
-          {getToolComponent()}
+          {renderToolPanel()}
         </div>
       </main>
 

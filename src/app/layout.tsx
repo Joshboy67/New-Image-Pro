@@ -6,12 +6,13 @@ import { Navbar } from "@/components/navigation/navbar";
 import { Footer } from "@/components/navigation/footer";
 import { AuthProvider } from "@/contexts/auth-context";
 import ClientLayout from '@/components/layouts/client-layout';
+import { ThemeProvider } from '@/components/theme-provider';
 
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'ImagePro - AI Image Processing',
-  description: 'Advanced AI-powered image editing tools',
+  title: 'ImagePro - AI-Powered Image Processing',
+  description: 'Professional-grade image editing made simple with AI-powered tools.',
 };
 
 export default function RootLayout({
@@ -21,9 +22,16 @@ export default function RootLayout({
 }) {
   return (
     <AuthProvider>
-      <html lang="en">
+      <html lang="en" suppressHydrationWarning>
         <body className={inter.className}>
-          <ClientLayout>{children}</ClientLayout>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <ClientLayout>{children}</ClientLayout>
+          </ThemeProvider>
           <Toaster />
         </body>
       </html>

@@ -2,12 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export async function middleware(req: NextRequest) {
-  // Skip middleware for the auth callback route
-  if (req.nextUrl.pathname.startsWith('/auth/callback')) {
-    return NextResponse.next();
-  }
-
+export async function middleware(request: NextRequest) {
   const res = NextResponse.next();
   
   const supabase = createServerClient(
@@ -15,47 +10,34 @@ export async function middleware(req: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get: (name) => req.cookies.get(name)?.value,
-        set: (name, value, options) => {
+        get: (name: string) => request.cookies.get(name)?.value,
+        set: (name: string, value: string, options: any) => {
           res.cookies.set(name, value, options);
           return undefined;
         },
-        remove: (name, options) => {
+        remove: (name: string, options: any) => {
           res.cookies.set(name, '', { ...options, maxAge: 0 });
           return undefined;
         },
       },
     }
   );
-  
-  const { data: { session } } = await supabase.auth.getSession();
-  
-  // Check if user is authenticated for protected routes
-  if (!session && req.nextUrl.pathname.startsWith('/dashboard')) {
-    const redirectUrl = new URL('/login', req.url);
-    redirectUrl.searchParams.set('redirect', req.nextUrl.pathname);
-    return NextResponse.redirect(redirectUrl);
-  }
-  
-  // Redirect logged in users away from auth pages
-  if (session && (
-    req.nextUrl.pathname.startsWith('/login') || 
-    req.nextUrl.pathname.startsWith('/signup')
-  )) {
-    return NextResponse.redirect(new URL('/dashboard', req.url));
-  }
-  
+
+  // Refresh session if expired
+  await supabase.auth.getSession();
+
   return res;
 }
 
 export const config = {
   matcher: [
-    '/dashboard/:path*',
-    '/login',
-    '/signup',
-    '/auth/callback',
-    '/auth/login',
-    '/forgot-password',
-    '/reset-password',
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public folder
+     */
+    '/((?!_next/static|_next/image|favicon.ico|public).*)',
   ],
 }; 

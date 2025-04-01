@@ -1,15 +1,99 @@
 -- Enable necessary extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Create profiles table
+-- Create a table for public profiles
 CREATE TABLE profiles (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
+    id UUID REFERENCES auth.users ON DELETE CASCADE NOT NULL PRIMARY KEY,
+    updated_at TIMESTAMPTZ,
+    username TEXT UNIQUE,
     full_name TEXT,
+    bio TEXT,
+    website TEXT,
+    location TEXT,
     avatar_url TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    google_avatar_url TEXT,
+    created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
+    constraint username_length check (char_length(username) >= 3)
 );
+
+-- Set up Row Level Security (RLS)
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+
+-- Create policies
+CREATE POLICY "Public profiles are viewable by everyone."
+    ON profiles FOR SELECT
+    USING ( true );
+
+CREATE POLICY "Users can insert their own profile."
+    ON profiles FOR INSERT
+    WITH CHECK ( auth.uid() = id );
+
+CREATE POLICY "Users can update own profile."
+    ON profiles FOR UPDATE
+    USING ( auth.uid() = id );
+
+-- Create a function to handle new user creation
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO public.profiles (id, username, full_name, avatar_url)
+    VALUES (
+        new.id,
+        new.raw_user_meta_data->>'username',
+        new.raw_user_meta_data->>'full_name',
+        new.raw_user_meta_data->>'avatar_url'
+    );
+    RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Create a trigger to automatically create a profile for new users
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+    AFTER INSERT ON auth.users
+    FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+
+-- Create a table for user settings
+CREATE TABLE user_settings (
+    user_id UUID REFERENCES auth.users ON DELETE CASCADE NOT NULL PRIMARY KEY,
+    theme TEXT DEFAULT 'system' CHECK (theme IN ('light', 'dark', 'system')),
+    notifications_enabled BOOLEAN DEFAULT true,
+    email_notifications BOOLEAN DEFAULT true,
+    created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Set up RLS for user settings
+ALTER TABLE user_settings ENABLE ROW LEVEL SECURITY;
+
+-- Create policies for user settings
+CREATE POLICY "Users can view their own settings"
+    ON user_settings FOR SELECT
+    USING ( auth.uid() = user_id );
+
+CREATE POLICY "Users can update their own settings"
+    ON user_settings FOR UPDATE
+    USING ( auth.uid() = user_id );
+
+CREATE POLICY "Users can insert their own settings"
+    ON user_settings FOR INSERT
+    WITH CHECK ( auth.uid() = user_id );
+
+-- Create a function to initialize user settings
+CREATE OR REPLACE FUNCTION public.initialize_user_settings()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO public.user_settings (user_id)
+    VALUES (new.id);
+    RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Create a trigger to automatically create user settings for new users
+DROP TRIGGER IF EXISTS on_auth_user_created_settings ON auth.users;
+CREATE TRIGGER on_auth_user_created_settings
+    AFTER INSERT ON auth.users
+    FOR EACH ROW EXECUTE PROCEDURE public.initialize_user_settings();
 
 -- Create images table
 CREATE TABLE images (
@@ -34,71 +118,6 @@ CREATE TABLE processing_history (
     error_message TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
--- Create user_settings table
-CREATE TABLE user_settings (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
-    theme TEXT NOT NULL DEFAULT 'system',
-    notifications_enabled BOOLEAN NOT NULL DEFAULT true,
-    language TEXT NOT NULL DEFAULT 'en',
-    timezone TEXT NOT NULL DEFAULT 'UTC',
-    date_format TEXT NOT NULL DEFAULT 'YYYY-MM-DD',
-    number_format TEXT NOT NULL DEFAULT 'en-US',
-    privacy JSONB NOT NULL DEFAULT '{"profile_visibility": "public", "data_sharing": true}',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- Create RLS policies
-ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE images ENABLE ROW LEVEL SECURITY;
-ALTER TABLE processing_history ENABLE ROW LEVEL SECURITY;
-ALTER TABLE user_settings ENABLE ROW LEVEL SECURITY;
-
--- Profiles policies
-CREATE POLICY "Users can view their own profile"
-    ON profiles FOR SELECT
-    USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can update their own profile"
-    ON profiles FOR UPDATE
-    USING (auth.uid() = user_id);
-
--- Images policies
-CREATE POLICY "Users can view their own images"
-    ON images FOR SELECT
-    USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert their own images"
-    ON images FOR INSERT
-    WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update their own images"
-    ON images FOR UPDATE
-    USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete their own images"
-    ON images FOR DELETE
-    USING (auth.uid() = user_id);
-
--- Processing history policies
-CREATE POLICY "Users can view their own processing history"
-    ON processing_history FOR SELECT
-    USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert their own processing history"
-    ON processing_history FOR INSERT
-    WITH CHECK (auth.uid() = user_id);
-
--- User settings policies
-CREATE POLICY "Users can view their own settings"
-    ON user_settings FOR SELECT
-    USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can update their own settings"
-    ON user_settings FOR UPDATE
-    USING (auth.uid() = user_id);
 
 -- Create updated_at triggers
 CREATE OR REPLACE FUNCTION update_updated_at_column()

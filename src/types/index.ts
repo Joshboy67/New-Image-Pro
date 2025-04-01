@@ -1,9 +1,20 @@
 import { User as SupabaseUser } from '@supabase/supabase-js';
 
-export interface User extends SupabaseUser {
+export interface User {
+  id: string;
+  email: string;
+  user_metadata?: {
+    full_name?: string;
+    avatar_url?: string;
+  };
   full_name?: string;
+  username?: string;
+  bio?: string;
+  website?: string;
+  location?: string;
   avatar_url?: string;
-  google_avatar_url?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Profile {
@@ -75,9 +86,12 @@ export interface ProcessingHistory {
 }
 
 export interface UserSettings {
+  user_id: string;
   theme: 'light' | 'dark' | 'system';
+  notifications_enabled: boolean;
   email_notifications: boolean;
-  image_quality: 'low' | 'medium' | 'high';
+  created_at: string;
+  updated_at: string;
 }
 
 export interface AuthError {

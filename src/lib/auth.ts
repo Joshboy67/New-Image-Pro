@@ -1,7 +1,9 @@
-import { createClient } from '@supabase/supabase-js';
+import { createBrowserClient } from '@supabase/ssr';
 import { User } from '@/types';
+import { DatabaseError } from '@/lib/errors';
 
-const supabase = createClient(
+// Create a single instance of the Supabase client
+const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
@@ -17,32 +19,54 @@ export class AuthService {
     return AuthService.instance;
   }
 
-  async signUp(email: string, password: string, fullName: string) {
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
-        },
-      },
-    });
-
-    if (authError) throw authError;
-
-    // Create profile
-    if (authData.user) {
-      const { error: profileError } = await supabase
+  async signUp(email: string, password: string, fullName: string, username: string) {
+    try {
+      // Check if username is already taken
+      const { data: existingUser, error: checkError } = await supabase
         .from('profiles')
-        .insert({
-          user_id: authData.user.id,
-          full_name: fullName,
-        });
+        .select('id')
+        .eq('username', username)
+        .single();
 
-      if (profileError) throw profileError;
+      if (checkError && checkError.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+        throw new DatabaseError('Failed to check username availability');
+      }
+
+      if (existingUser) {
+        throw new Error('Username is already taken');
+      }
+
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+            username: username,
+          },
+        },
+      });
+
+      if (authError) throw new DatabaseError('Failed to sign up');
+
+      // Create profile
+      if (authData.user) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: authData.user.id,
+            username,
+            full_name: fullName,
+          });
+
+        if (profileError) throw new DatabaseError('Failed to create profile');
+      }
+
+      return authData;
+    } catch (error) {
+      console.error('Error during sign up:', error);
+      throw error;
     }
-
-    return authData;
   }
 
   async signIn(email: string, password: string) {
@@ -164,40 +188,159 @@ export class AuthService {
   }
 
   async getCurrentUser(): Promise<User | null> {
-    const { data: { user }, error } = await supabase.auth.getUser();
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      if (!user) return null;
 
-    if (error) throw error;
-    if (!user) return null;
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
 
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('user_id', user.id)
-      .single();
+      if (profileError) {
+        console.error('Get profile error:', profileError);
+        throw new DatabaseError('Failed to get profile');
+      }
 
-    if (profileError) throw profileError;
-
-    return {
-      id: user.id,
-      email: user.email!,
-      full_name: profile.full_name,
-      avatar_url: profile.avatar_url,
-      created_at: user.created_at,
-      updated_at: profile.updated_at,
-    };
+      return {
+        id: user.id,
+        email: user.email || '',
+        user_metadata: user.user_metadata,
+        full_name: profile.full_name,
+        username: profile.username,
+        bio: profile.bio,
+        website: profile.website,
+        location: profile.location,
+        avatar_url: profile.avatar_url,
+        created_at: profile.created_at,
+        updated_at: profile.updated_at,
+      };
+    } catch (error) {
+      console.error('Error getting current user:', error);
+      throw error;
+    }
   }
 
   async updateProfile(data: Partial<User>) {
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError) throw userError;
-    if (!user) throw new Error('No user found');
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) {
+        console.error('Get user error:', userError);
+        throw new DatabaseError('Failed to get user');
+      }
+      if (!user) throw new DatabaseError('No user found');
 
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .update(data)
-      .eq('user_id', user.id);
+      // Validate username if provided
+      if (data.username) {
+        try {
+          // First, get the current user's profile to check if username is being changed
+          const { data: currentProfile, error: currentProfileError } = await supabase
+            .from('profiles')
+            .select('username')
+            .eq('id', user.id)
+            .single();
 
-    if (profileError) throw profileError;
+          if (currentProfileError) {
+            console.error('Get current profile error:', currentProfileError);
+            throw new DatabaseError('Failed to get current profile');
+          }
+
+          // Only check username availability if it's different from current username
+          if (data.username !== currentProfile?.username) {
+            // Check if username is already taken by another user
+            const { data: existingUser, error: checkError } = await supabase
+              .from('profiles')
+              .select('id')
+              .eq('username', data.username)
+              .neq('id', user.id)
+              .maybeSingle();
+
+            if (checkError) {
+              console.error('Username check error:', checkError);
+              throw new DatabaseError('Failed to check username availability');
+            }
+
+            if (existingUser) {
+              throw new Error('Username is already taken');
+            }
+          }
+        } catch (error) {
+          console.error('Username validation error:', error);
+          throw error;
+        }
+      }
+
+      // Update profile
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          full_name: data.full_name,
+          username: data.username,
+          bio: data.bio,
+          website: data.website,
+          location: data.location,
+          avatar_url: data.avatar_url,
+        })
+        .eq('id', user.id)
+        .select()
+        .single();
+
+      if (profileError) {
+        console.error('Profile update error:', profileError);
+        throw new DatabaseError('Failed to update profile');
+      }
+
+      // If there's a new avatar, upload it
+      if (data.avatar_url && data.avatar_url !== profile.avatar_url) {
+        try {
+          const response = await fetch(data.avatar_url);
+          if (!response.ok) throw new Error('Failed to download avatar');
+          
+          const blob = await response.blob();
+          const fileExt = 'png';
+          const filePath = `${user.id}/avatar.${fileExt}`;
+          
+          // Upload to Supabase storage
+          const { error: uploadError } = await supabase.storage
+            .from('avatars')
+            .upload(filePath, blob, {
+              contentType: 'image/png',
+              upsert: true
+            });
+          
+          if (uploadError) {
+            console.error('Avatar upload error:', uploadError);
+            throw new DatabaseError('Failed to upload avatar');
+          }
+          
+          // Get the public URL
+          const { data: publicURL } = supabase.storage
+            .from('avatars')
+            .getPublicUrl(filePath);
+          
+          // Update profile with new avatar URL
+          const { error: updateError } = await supabase
+            .from('profiles')
+            .update({ avatar_url: publicURL.publicUrl })
+            .eq('id', user.id);
+          
+          if (updateError) {
+            console.error('Avatar URL update error:', updateError);
+            throw new DatabaseError('Failed to update avatar URL');
+          }
+        } catch (error) {
+          console.error('Error processing avatar:', error);
+          // Don't throw here, as the profile was already updated
+        }
+      }
+
+      return profile;
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      throw error;
+    }
   }
 
   async deleteAccount() {
@@ -212,6 +355,14 @@ export class AuthService {
       .eq('user_id', user.id);
 
     if (deleteError) throw deleteError;
+
+    // Delete user settings
+    const { error: settingsError } = await supabase
+      .from('user_settings')
+      .delete()
+      .eq('user_id', user.id);
+
+    if (settingsError) throw settingsError;
 
     // Delete user account
     const { error: accountError } = await supabase.auth.admin.deleteUser(user.id);

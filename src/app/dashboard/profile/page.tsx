@@ -1,36 +1,85 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/auth-context';
-import { UserCircle, Camera, Save, X } from 'lucide-react';
+import { UserCircle, Camera, Save, X, Wand2 } from 'lucide-react';
 import Image from 'next/image';
+import { authService } from '@/lib/auth';
+import { BackgroundRemoverService } from '@/lib/background-remover';
 
 export default function ProfilePage() {
   const { user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
-    name: user?.user_metadata?.full_name || '',
-    email: user?.email || '',
-    avatar: user?.user_metadata?.avatar_url || '',
+    full_name: '',
+    username: '',
+    bio: '',
+    website: '',
+    location: '',
+    avatar_url: '',
   });
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isRemovingBackground, setIsRemovingBackground] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  // Load profile data when component mounts
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const profile = await authService.getCurrentUser();
+        if (profile) {
+          setFormData({
+            full_name: profile.full_name || '',
+            username: profile.username || '',
+            bio: profile.bio || '',
+            website: profile.website || '',
+            location: profile.location || '',
+            avatar_url: profile.avatar_url || '',
+          });
+        }
+      } catch (err) {
+        console.error('Error loading profile:', err);
+        setError('Failed to load profile data');
+      }
+    };
+    loadProfile();
+  }, []);
 
   const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      setSelectedFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
         setAvatarPreview(reader.result as string);
-        setFormData(prev => ({ ...prev, avatar: reader.result as string }));
+        setFormData(prev => ({ ...prev, avatar_url: reader.result as string }));
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleRemoveBackground = async () => {
+    if (!selectedFile) return;
+
+    setIsRemovingBackground(true);
+    setError(null);
+
+    try {
+      const backgroundRemover = BackgroundRemoverService.getInstance();
+      const processedImageUrl = await backgroundRemover.removeBackground(selectedFile);
+      setAvatarPreview(processedImageUrl);
+      setFormData(prev => ({ ...prev, avatar_url: processedImageUrl }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to remove background');
+    } finally {
+      setIsRemovingBackground(false);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
@@ -42,26 +91,38 @@ export default function ProfilePage() {
     setSuccess(null);
 
     try {
-      // Here you would typically make an API call to update the user profile
-      // For now, we'll simulate a successful update
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      await authService.updateProfile(formData);
       setSuccess('Profile updated successfully!');
       setIsEditing(false);
     } catch (err) {
-      setError('Failed to update profile. Please try again.');
+      setError(err instanceof Error ? err.message : 'Failed to update profile. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleCancel = () => {
-    setFormData({
-      name: user?.user_metadata?.full_name || '',
-      email: user?.email || '',
-      avatar: user?.user_metadata?.avatar_url || '',
-    });
+    // Reload the profile data to reset the form
+    const loadProfile = async () => {
+      try {
+        const profile = await authService.getCurrentUser();
+        if (profile) {
+          setFormData({
+            full_name: profile.full_name || '',
+            username: profile.username || '',
+            bio: profile.bio || '',
+            website: profile.website || '',
+            location: profile.location || '',
+            avatar_url: profile.avatar_url || '',
+          });
+        }
+      } catch (err) {
+        console.error('Error loading profile:', err);
+      }
+    };
+    loadProfile();
     setAvatarPreview(null);
+    setSelectedFile(null);
     setIsEditing(false);
     setError(null);
     setSuccess(null);
@@ -88,10 +149,10 @@ export default function ProfilePage() {
           {/* Avatar Section */}
           <div className="flex items-center space-x-6">
             <div className="relative">
-              {avatarPreview || formData.avatar ? (
+              {avatarPreview || formData.avatar_url ? (
                 <div className="relative w-24 h-24 rounded-full overflow-hidden">
                   <Image
-                    src={avatarPreview || formData.avatar}
+                    src={avatarPreview || formData.avatar_url}
                     alt="Profile"
                     fill
                     className="object-cover"
@@ -101,15 +162,28 @@ export default function ProfilePage() {
                 <UserCircle className="w-24 h-24 text-gray-400" />
               )}
               {isEditing && (
-                <label className="absolute bottom-0 right-0 bg-white rounded-full p-1.5 shadow-lg cursor-pointer">
-                  <Camera className="w-4 h-4 text-gray-600" />
-                  <input
-                    type="file"
-                    className="hidden"
-                    accept="image/*"
-                    onChange={handleAvatarChange}
-                  />
-                </label>
+                <div className="absolute bottom-0 right-0 flex space-x-2">
+                  <label className="bg-white rounded-full p-1.5 shadow-lg cursor-pointer">
+                    <Camera className="w-4 h-4 text-gray-600" />
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="image/*"
+                      onChange={handleAvatarChange}
+                    />
+                  </label>
+                  {selectedFile && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveBackground}
+                      disabled={isRemovingBackground}
+                      className="bg-white rounded-full p-1.5 shadow-lg cursor-pointer hover:bg-gray-50 disabled:opacity-50"
+                      title="Remove background"
+                    >
+                      <Wand2 className="w-4 h-4 text-purple-600" />
+                    </button>
+                  )}
+                </div>
               )}
             </div>
             <div>
@@ -117,26 +191,95 @@ export default function ProfilePage() {
               <p className="text-sm text-gray-500">
                 Upload a new profile picture or keep the current one
               </p>
+              {isRemovingBackground && (
+                <p className="text-sm text-purple-600 mt-1">
+                  Removing background...
+                </p>
+              )}
             </div>
           </div>
 
-          {/* Name Field */}
+          {/* Full Name Field */}
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="full_name" className="block text-sm font-medium text-gray-700">
               Full Name
             </label>
             <input
               type="text"
-              id="name"
-              name="name"
-              value={formData.name}
+              id="full_name"
+              name="full_name"
+              value={formData.full_name}
               onChange={handleInputChange}
               disabled={!isEditing}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-100"
             />
           </div>
 
-          {/* Email Field */}
+          {/* Username Field */}
+          <div>
+            <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+              Username
+            </label>
+            <input
+              type="text"
+              id="username"
+              name="username"
+              value={formData.username}
+              onChange={handleInputChange}
+              disabled={!isEditing}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-100"
+            />
+          </div>
+
+          {/* Bio Field */}
+          <div>
+            <label htmlFor="bio" className="block text-sm font-medium text-gray-700">
+              Bio
+            </label>
+            <textarea
+              id="bio"
+              name="bio"
+              value={formData.bio}
+              onChange={handleInputChange}
+              disabled={!isEditing}
+              rows={3}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-100"
+            />
+          </div>
+
+          {/* Website Field */}
+          <div>
+            <label htmlFor="website" className="block text-sm font-medium text-gray-700">
+              Website
+            </label>
+            <input
+              type="url"
+              id="website"
+              name="website"
+              value={formData.website}
+              onChange={handleInputChange}
+              disabled={!isEditing}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-100"
+            />
+          </div>
+
+          {/* Location Field */}
+          <div>
+            <label htmlFor="location" className="block text-sm font-medium text-gray-700">
+              Location
+            </label>
+            <input
+              type="text"
+              id="location"
+              name="location"
+              value={formData.location}
+              onChange={handleInputChange}
+              disabled={!isEditing}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-100"
+            />
+          </div>
+
+          {/* Email Field (Read-only) */}
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700">
               Email
@@ -144,8 +287,7 @@ export default function ProfilePage() {
             <input
               type="email"
               id="email"
-              name="email"
-              value={formData.email}
+              value={user?.email || ''}
               disabled
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-100"
             />
